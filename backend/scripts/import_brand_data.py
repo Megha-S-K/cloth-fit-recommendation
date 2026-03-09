@@ -9,7 +9,7 @@ engine = create_engine(DATABASE_URL)
 # Get project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-file_path = os.path.join(BASE_DIR, "data", "brand_size_chart.xlsx")
+file_path = os.path.join(BASE_DIR, "data", "brand_size_chart_fixed.xlsx")
 
 print("Reading file from:", file_path)
 

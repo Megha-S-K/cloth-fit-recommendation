@@ -8,16 +8,21 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    email = Column(String, unique=True, index=True)
-    password_hash = Column(String)
+    # --- Auth fields ---
+    name  = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
 
-    sw = Column(Float)
-    hw = Column(Float)
-    tl = Column(Float)
-    ll = Column(Float)
+    # --- Raw measurements (normalized, unitless) ---
+    sw = Column(Float)   # Shoulder Width
+    hw = Column(Float)   # Hip Width
+    tl = Column(Float)   # Torso Length
+    ll = Column(Float)   # Leg Length
 
-    r1 = Column(Float)
-    r2 = Column(Float)
+    # --- Derived ratios ---
+    r1 = Column(Float)   # SW / HW  →  used for top matching
+    r2 = Column(Float)   # TL / LL  →  secondary ratio
 
-    body_shape = Column(String)
-    measurement_confidence = Column(Float)
+    # --- Classification ---
+    body_shape             = Column(String)
+    measurement_confidence = Column(Float)   # mean landmark visibility score
