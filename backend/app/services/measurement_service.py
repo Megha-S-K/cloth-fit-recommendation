@@ -36,12 +36,12 @@ USED_LANDMARK_INDICES = [
 #
 SHOULDER_SCALE = 2.84   # converts shoulder joint width → chest circumference
 HIP_SCALE      = 4.32   # converts hip joint width     → hip circumference
-TORSO_SCALE    = 2.50   # converts torso joint length  → torso circumference
-LEG_SCALE      = 1.20   # leg length needs less correction
+TORSO_SCALE    = 1.00   # converts torso joint length  → torso circumference
+LEG_SCALE      = 0.67   # leg length needs less correction
 
 # ── Validation bounds (circumference-ratio space) ──────────────────────────
 R1_MIN, R1_MAX = 0.75, 1.20
-R2_MIN, R2_MAX = 0.30, 0.90
+R2_MIN, R2_MAX = 0.60, 1.10
 
 PHOTO_GUIDELINES = (
     "Please upload a photo that meets these requirements:\n"

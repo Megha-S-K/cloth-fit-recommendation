@@ -20,10 +20,10 @@ def extract_pose_landmarks(image):
     pose_world_landmarks returns real-world metric coordinates (metres)
     estimated from a 3D body model, with the hip midpoint as origin.
     These are completely independent of:
-      - Image aspect ratio (portrait, landscape, square)
-      - Camera distance / zoom level
-      - How much of the frame the person fills
-      - Whether the image was padded
+        - Image aspect ratio (portrait, landscape, square)
+        - Camera distance / zoom level
+        - How much of the frame the person fills
+        - Whether the image was padded
 
     This is the correct input for computing body proportion ratios
     like R1 = SW/HW. Since both SW and HW are in the same unit
