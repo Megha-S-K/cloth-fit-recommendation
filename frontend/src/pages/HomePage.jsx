@@ -3,254 +3,262 @@ import Navbar from "../components/Navbar";
 import {
     getGenders, getBrands, getCategories,
     getProductTypes, getGarmentTypes, recommendSize
-} from "../api";
+    } from "../api";
 
-function useOptions(token) {
-    const [genders, setGenders] = useState([]);
-    const [brands, setBrands] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [productTypes, setProductTypes] = useState([]);
-    const [garmentTypes, setGarmentTypes] = useState([]);
+    const RISK_CLASS = { Low: "badge-green", Medium: "badge-amber", High: "badge-red" };
 
-    const [sel, setSel] = useState({ gender: "", brand: "", category: "", productType: "", garmentType: "" });
+    function useOptions() {
+    const [opts, setOpts] = useState({ genders: [], brands: [], categories: [], productTypes: [], garmentTypes: [] });
+    const [sel, setSel]   = useState({ gender: "", brand: "", category: "", productType: "", garmentType: "" });
+
     const set = (k) => (v) => setSel(s => {
-        const next = { ...s, [k]: v };
-        // Reset downstream
-        if (k === "gender") { next.brand = ""; next.category = ""; next.productType = ""; next.garmentType = ""; }
-        if (k === "brand") { next.category = ""; next.productType = ""; next.garmentType = ""; }
-        if (k === "category") { next.productType = ""; next.garmentType = ""; }
-        if (k === "productType") { next.garmentType = ""; }
-        return next;
+        const n = { ...s, [k]: v };
+        if (k === "gender")      { n.brand = ""; n.category = ""; n.productType = ""; n.garmentType = ""; }
+        if (k === "brand")       { n.category = ""; n.productType = ""; n.garmentType = ""; }
+        if (k === "category")    { n.productType = ""; n.garmentType = ""; }
+        if (k === "productType") { n.garmentType = ""; }
+        return n;
     });
 
-    useEffect(() => { getGenders().then(setGenders).catch(console.error); }, []);
-    useEffect(() => { if (sel.gender) getBrands(sel.gender).then(setBrands).catch(console.error); else setBrands([]); }, [sel.gender]);
-    useEffect(() => { if (sel.brand) getCategories(sel.gender, sel.brand).then(setCategories).catch(console.error); else setCategories([]); }, [sel.brand]);
-    useEffect(() => { if (sel.category) getProductTypes(sel.gender, sel.brand, sel.category).then(setProductTypes).catch(console.error); else setProductTypes([]); }, [sel.category]);
-    useEffect(() => { if (sel.productType) getGarmentTypes(sel.gender, sel.brand, sel.category, sel.productType).then(setGarmentTypes).catch(console.error); else setGarmentTypes([]); }, [sel.productType]);
+    useEffect(() => { getGenders().then(g => setOpts(o => ({ ...o, genders: g }))).catch(console.error); }, []);
+    useEffect(() => {
+        if (sel.gender) getBrands(sel.gender).then(b => setOpts(o => ({ ...o, brands: b }))).catch(console.error);
+        else setOpts(o => ({ ...o, brands: [], categories: [], productTypes: [], garmentTypes: [] }));
+    }, [sel.gender]);
+    useEffect(() => {
+        if (sel.brand) getCategories(sel.gender, sel.brand).then(c => setOpts(o => ({ ...o, categories: c }))).catch(console.error);
+        else setOpts(o => ({ ...o, categories: [], productTypes: [], garmentTypes: [] }));
+    }, [sel.brand]);
+    useEffect(() => {
+        if (sel.category) getProductTypes(sel.gender, sel.brand, sel.category).then(p => setOpts(o => ({ ...o, productTypes: p }))).catch(console.error);
+        else setOpts(o => ({ ...o, productTypes: [], garmentTypes: [] }));
+    }, [sel.category]);
+    useEffect(() => {
+        if (sel.productType) getGarmentTypes(sel.gender, sel.brand, sel.category, sel.productType).then(g => setOpts(o => ({ ...o, garmentTypes: g }))).catch(console.error);
+        else setOpts(o => ({ ...o, garmentTypes: [] }));
+    }, [sel.productType]);
 
-    return { genders, brands, categories, productTypes, garmentTypes, sel, set };
+    return { opts, sel, set };
     }
 
-    const RISK_BADGE = { Low: "badge-green", Medium: "badge-yellow", High: "badge-red" };
-
     export default function HomePage({ user, token, onNavigate, onLogout }) {
-    const { genders, brands, categories, productTypes, garmentTypes, sel, set } = useOptions(token);
+    const { opts, sel, set } = useOptions();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [result, setResult] = useState(null);
+    const [error, setError]     = useState("");
+    const [result, setResult]   = useState(null);
     const [history, setHistory] = useState([]);
 
-    const ready = sel.gender && sel.brand && sel.category && sel.productType && sel.garmentType;
+    const steps = [
+        { key: "gender",      label: "Gender",       list: opts.genders,      dep: true },
+        { key: "brand",       label: "Brand",        list: opts.brands,       dep: !!sel.gender },
+        { key: "category",    label: "Category",     list: opts.categories,   dep: !!sel.brand },
+        { key: "productType", label: "Product type", list: opts.productTypes, dep: !!sel.category },
+        { key: "garmentType", label: "Garment type", list: opts.garmentTypes, dep: !!sel.productType },
+    ];
+
+    const ready = steps.every(s => !!sel[s.key]);
 
     const handleRecommend = async () => {
         if (!ready) return;
         setError(""); setLoading(true); setResult(null);
         try {
         const res = await recommendSize(token, {
-            gender: sel.gender,
-            brand: sel.brand,
-            category: sel.category,
-            product_type: sel.productType,
-            garment_type: sel.garmentType,
+            gender: sel.gender, brand: sel.brand,
+            category: sel.category, product_type: sel.productType, garment_type: sel.garmentType,
         });
         setResult(res);
-        setHistory(h => [res, ...h].slice(0, 5));
-        } catch (err) {
-        setError(err.message);
-        } finally {
-        setLoading(false);
-        }
+        setHistory(h => [res, ...h].slice(0, 10));
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     const confPct = result ? Math.round(result.confidence * 100) : 0;
+    const confColor = confPct >= 70 ? "#3d7a5e" : confPct >= 50 ? "#b8963e" : "#8a3030";
 
     return (
-        <div className="home-layout">
-        <Navbar onNavigate={onNavigate} onLogout={onLogout} currentPage="home" />
+        <div className="page">
+        <Navbar user={user} onNavigate={onNavigate} onLogout={onLogout} currentPage="home" />
 
-        {/* Hero */}
-        <div className="home-hero">
-            <div className="home-hero-bg" />
-            <div className="home-hero-inner">
-            <div className="home-hero-greeting">Hello, {user.name?.split(" ")[0]} 👋</div>
-            <h1 className="home-hero-title">
-                Find your <em>perfect size</em><br />across any brand.
-            </h1>
-            <div className="home-hero-stats">
-                <div className="home-hero-stat">
-                <span className="home-hero-stat-val">{user.body_shape || "—"}</span>
-                <span className="home-hero-stat-label">Body Shape</span>
+        {/* Hero bar */}
+        <div className="hero-bar">
+            <div className="hero-bar-inner">
+            <div>
+                <div className="hero-greeting">Welcome back, {user.name?.split(" ")[0]}</div>
+                <h1 className="hero-title">Find your <em>perfect size</em></h1>
+            </div>
+            <div className="hero-stats">
+                {[
+                { val: user.body_shape || "—", label: "Body Shape" },
+                { val: user.measurement_confidence ? `${Math.round(user.measurement_confidence * 100)}%` : "—", label: "Confidence" },
+                { val: "9", label: "Brands" },
+                ].map(s => (
+                <div key={s.label}>
+                    <div className="hero-stat-val">{s.val}</div>
+                    <div className="hero-stat-label">{s.label}</div>
                 </div>
-                <div className="home-hero-stat">
-                <span className="home-hero-stat-val">{user.measurement_confidence ? `${Math.round(user.measurement_confidence * 100)}%` : "—"}</span>
-                <span className="home-hero-stat-label">Measurement Confidence</span>
-                </div>
-                <div className="home-hero-stat">
-                <span className="home-hero-stat-val">9</span>
-                <span className="home-hero-stat-label">Supported Brands</span>
-                </div>
+                ))}
             </div>
             </div>
         </div>
 
-        {/* Main */}
-        <div className="home-main">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32, alignItems: "start" }}
-                className="recommend-main-grid">
+        <div className="page-inner">
+            {error && <div className="alert alert-error" style={{ marginBottom: 20 }}><span>—</span><span>{error}</span></div>}
 
-            {/* Form */}
+            <div className="two-col">
+            {/* Left: filter panel */}
             <div>
-                <h2 className="section-title">Get a Size Recommendation</h2>
-                <p className="section-sub">Select your options step-by-step to get your personalised size.</p>
+                <div className="card card-padded">
+                <p className="section-eyebrow">Step by step</p>
+                <h2 className="section-title">Get a recommendation</h2>
+                <div className="gold-line" style={{ margin: "10px 0 20px" }} />
 
-                {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {/* Gender */}
-                <div className="form-group">
-                    <label className="form-label">Gender</label>
-                    <div className="form-select-wrap">
-                    <select className="form-select" value={sel.gender} onChange={e => set("gender")(e.target.value)}>
-                        <option value="">Select gender</option>
-                        {genders.map(g => <option key={g}>{g}</option>)}
-                    </select>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                    {steps.map((s, i) => (
+                    <div key={s.key}>
+                        <div className="step-row">
+                        <div className={`step-num ${sel[s.key] ? "done" : s.dep && (i === 0 || sel[steps[i-1]?.key]) ? "active" : ""}`}>
+                            {sel[s.key] ? "✓" : i + 1}
+                        </div>
+                        <span className={`step-label ${!sel[s.key] && s.dep ? "active" : ""}`}>{s.label}</span>
+                        </div>
+                        <div className="form-select-wrap">
+                        <select
+                            className="form-select"
+                            value={sel[s.key]}
+                            onChange={e => set(s.key)(e.target.value)}
+                            disabled={!s.dep}
+                        >
+                            <option value="">— Select —</option>
+                            {s.list.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                        </div>
                     </div>
-                </div>
-
-                {/* Brand */}
-                <div className="form-group">
-                    <label className="form-label">Brand</label>
-                    <div className="form-select-wrap">
-                    <select className="form-select" value={sel.brand} onChange={e => set("brand")(e.target.value)} disabled={!sel.gender}>
-                        <option value="">Select brand</option>
-                        {brands.map(b => <option key={b}>{b}</option>)}
-                    </select>
-                    </div>
-                </div>
-
-                {/* Category */}
-                <div className="form-group">
-                    <label className="form-label">Category</label>
-                    <div className="form-select-wrap">
-                    <select className="form-select" value={sel.category} onChange={e => set("category")(e.target.value)} disabled={!sel.brand}>
-                        <option value="">Select category</option>
-                        {categories.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                    </div>
-                </div>
-
-                {/* Product type */}
-                <div className="form-group">
-                    <label className="form-label">Product Type</label>
-                    <div className="form-select-wrap">
-                    <select className="form-select" value={sel.productType} onChange={e => set("productType")(e.target.value)} disabled={!sel.category}>
-                        <option value="">Select product type</option>
-                        {productTypes.map(p => <option key={p}>{p}</option>)}
-                    </select>
-                    </div>
-                </div>
-
-                {/* Garment type */}
-                <div className="form-group">
-                    <label className="form-label">Garment Type</label>
-                    <div className="form-select-wrap">
-                    <select className="form-select" value={sel.garmentType} onChange={e => set("garmentType")(e.target.value)} disabled={!sel.productType}>
-                        <option value="">Select garment type</option>
-                        {garmentTypes.map(g => <option key={g}>{g}</option>)}
-                    </select>
-                    </div>
+                    ))}
                 </div>
 
                 <button
-                    className="btn btn-primary"
+                    className="btn btn-primary btn-full"
+                    style={{ marginTop: 24 }}
                     onClick={handleRecommend}
                     disabled={!ready || loading}
-                    style={{ marginTop: 8 }}
                 >
-                    {loading ? <><span className="spinner" /> Calculating…</> : "Get My Size →"}
+                    {loading
+                    ? <><span className="spinner" />Finding your size…</>
+                    : "Get recommendation"
+                    }
                 </button>
+
+                {!ready && (
+                    <p style={{ marginTop: 12, textAlign: "center", fontSize: "0.78rem", color: "var(--slate-400)" }}>
+                    Complete all 5 selections above
+                    </p>
+                )}
+                </div>
+
+                {/* How it works */}
+                <div className="card" style={{ marginTop: 16, padding: "20px 22px" }}>
+                <p className="section-eyebrow" style={{ marginBottom: 12 }}>How it works</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                    {[
+                    "Your photo was analysed using MediaPipe BlazePose",
+                    "R1 (chest/hip) and R2 (torso/leg) ratios were extracted",
+                    "Your ratios are matched against our brand size database",
+                    "The closest size is returned with a confidence score",
+                    ].map((t, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: "0.83rem", color: "var(--slate-500)", textAlign: "left" }}>
+                        <span style={{ color: "var(--gold)", fontWeight: 700, flexShrink: 0, minWidth: 16 }}>{i + 1}.</span>
+                        <span style={{ lineHeight: 1.5 }}>{t}</span>
+                    </div>
+                    ))}
+                </div>
                 </div>
             </div>
 
-            {/* Result + history */}
+            {/* Right: result + history */}
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {result ? (
                 <div className="result-card">
-                    <div className="result-card-bg" />
-                    <div className="result-card-inner">
-                    <div className="result-size-label">Recommended Size · {result.brand}</div>
-                    <div className="result-size-val">{result.recommended_size}</div>
+                    <div className="result-eyebrow">{result.brand} · {result.gender} · {result.garment_type}</div>
+                    <div className="result-size">{result.recommended_size}</div>
+                    <div className="result-brand">Recommended size</div>
 
                     <div className="result-meta">
-                        <span className="badge badge-ink">{result.gender}</span>
-                        <span className="badge badge-ink">{result.category}</span>
-                        <span className="badge badge-ink">{result.garment_type}</span>
-                        <span className={`badge ${RISK_BADGE[result.return_risk] || "badge-yellow"}`}>
-                        {result.return_risk} Return Risk
-                        </span>
+                    <span className={`badge ${RISK_CLASS[result.return_risk]}`}>{result.return_risk} return risk</span>
+                    <span className="badge badge-slate">{result.product_type}</span>
+                    <span className="badge badge-slate">{result.category}</span>
                     </div>
 
-                    <div style={{ marginBottom: 8, color: "rgba(255,255,255,0.6)", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Fit Confidence
+                    <div className="conf-row">
+                    <span className="conf-label">Fit confidence</span>
+                    <div className="conf-track">
+                        <div className="conf-fill" style={{ width: `${confPct}%`, background: confColor }} />
                     </div>
-                    <div className="result-confidence">
-                        <div className="confidence-bar-wrap">
-                        <div className="confidence-bar-fill" style={{ width: `${confPct}%` }} />
-                        </div>
-                        <span className="confidence-pct">{confPct}%</span>
+                    <span className="conf-pct" style={{ color: confColor }}>{confPct}%</span>
                     </div>
 
-                    <div style={{ marginTop: 16, color: "rgba(255,255,255,0.45)", fontSize: "0.78rem" }}>
-                        Matched on {result.matched_on} · Δ {result.delta}
-                    </div>
-                    </div>
-                </div>
-                ) : (
-                <div className="card" style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>
-                    <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>👗</div>
-                    <div style={{ fontFamily: "Syne", fontWeight: 700, fontSize: "1rem", marginBottom: 4, color: "var(--ink)" }}>
-                    Your result will appear here
-                    </div>
-                    <div style={{ fontSize: "0.88rem" }}>Select all options and click "Get My Size"</div>
-                </div>
-                )}
-
-                {/* Recent history */}
-                {history.length > 1 && (
-                <div>
-                    <div style={{ fontFamily: "Syne", fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 10 }}>
-                    Recent Results
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {history.slice(1).map((h, i) => (
-                        <div key={i} className="card" style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div>
-                            <span style={{ fontFamily: "Syne", fontWeight: 800, fontSize: "1.2rem", marginRight: 10 }}>{h.recommended_size}</span>
-                            <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{h.brand} · {h.garment_type}</span>
-                        </div>
-                        <span className={`badge ${RISK_BADGE[h.return_risk]}`}>{Math.round(h.confidence * 100)}%</span>
+                    <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {[
+                        ["Matched on", result.matched_on],
+                        ["Deviation", `Δ ${result.delta?.toFixed(4)}`],
+                    ].map(([k, v]) => (
+                        <div key={k}>
+                        <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 2 }}>{k}</div>
+                        <div style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.6)" }}>{v}</div>
                         </div>
                     ))}
                     </div>
+
+                    {confPct < 50 && (
+                    <div style={{ marginTop: 18, padding: "10px 14px", background: "rgba(184,150,62,0.12)", border: "1px solid rgba(184,150,62,0.2)", borderRadius: "var(--radius-sm)", fontSize: "0.8rem", color: "rgba(255,255,255,0.5)" }}>
+                        Low confidence — consider updating your photo in Profile for better accuracy.
+                    </div>
+                    )}
+                </div>
+                ) : (
+                <div className="card">
+                    <div className="empty-state">
+                    <div className="empty-icon">◈</div>
+                    <div className="empty-title">Your recommendation appears here</div>
+                    <div className="empty-sub">Select all five options on the left and click "Get recommendation"</div>
+                    </div>
+                </div>
+                )}
+
+                {/* History */}
+                {history.length > 0 && (
+                <div className="card">
+                    <div style={{ padding: "20px 24px 12px", borderBottom: "1px solid var(--slate-100)" }}>
+                    <p className="section-eyebrow">Session history</p>
+                    </div>
+                    <table className="hist-table" style={{ padding: "0 8px" }}>
+                    <thead>
+                        <tr>
+                        <th>Brand</th>
+                        <th>Garment</th>
+                        <th>Size</th>
+                        <th>Confidence</th>
+                        <th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {history.map((h, i) => (
+                        <tr key={i}>
+                            <td style={{ fontWeight: 500 }}>{h.brand}</td>
+                            <td>{h.garment_type}</td>
+                            <td><span className="hist-size">{h.recommended_size}</span></td>
+                            <td>{Math.round(h.confidence * 100)}%</td>
+                            <td><span className={`badge ${RISK_CLASS[h.return_risk]}`}>{h.return_risk}</span></td>
+                        </tr>
+                        ))}
+                    </tbody>
+                    </table>
                 </div>
                 )}
             </div>
             </div>
-
-            {/* Low confidence tip */}
-            {result && result.confidence < 0.5 && (
-            <div className="alert alert-warn" style={{ marginTop: 24 }}>
-                ⚠️ Low confidence ({confPct}%) — your body proportions differ significantly from standard sizing for this brand. Consider updating your photo in Profile for more accurate measurements.
-            </div>
-            )}
         </div>
 
-        <style>{`
-            @media (max-width: 768px) {
-            .recommend-main-grid { grid-template-columns: 1fr !important; }
-            }
-        `}</style>
+        <footer className="page-footer">SmartFit AI · Size Intelligence</footer>
         </div>
     );
 }

@@ -1,132 +1,243 @@
 import { useState, useRef } from "react";
-import { register } from "../api";
+import Navbar from "../components/Navbar";
+import LiveCaptureInline from "../components/LiveCaptureInline";
+import { updateImage } from "../api";
 
-export default function RegisterPage({ onLogin, onNavigate }) {
-    const [form, setForm] = useState({ name: "", email: "", password: "" });
-    const [imageFile, setImageFile] = useState(null);
-    const [preview, setPreview] = useState(null);
-    const [dragOver, setDragOver] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+const SHAPE_DESC = {
+    "Hourglass":         "Balanced shoulders and hips with defined waist.",
+    "Pear":              "Hips notably wider than shoulders.",
+    "Inverted Triangle": "Shoulders broader than hips.",
+    "Rectangle":         "Shoulders and hips roughly equal — minimal waist definition.",
+    "Apple":             "Fuller midsection relative to shoulders and hips.",
+    };
+
+    export default function ProfilePage({ user, token, onNavigate, onLogout, onUserUpdate }) {
+    const [captureMode, setCaptureMode] = useState("upload");
+    const [imageFile, setImageFile]     = useState(null);
+    const [preview, setPreview]         = useState(null);
+    const [dragOver, setDragOver]       = useState(false);
+    const [loading, setLoading]         = useState(false);
+    const [success, setSuccess]         = useState("");
+    const [error, setError]             = useState("");
     const fileRef = useRef();
 
-    const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+    const initials = user.name
+        ? user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
+        : "?";
+
+    const confPct = user.measurement_confidence
+        ? Math.round(user.measurement_confidence * 100) : null;
+    const confColor = confPct >= 70 ? "#3d7a5e" : confPct >= 50 ? "#b8963e" : "#8a3030";
 
     const handleFile = (file) => {
         if (!file) return;
         setImageFile(file);
         setPreview(URL.createObjectURL(file));
+        setSuccess(""); setError("");
     };
 
-    const handleDrop = (e) => {
-        e.preventDefault();
-        setDragOver(false);
-        handleFile(e.dataTransfer.files[0]);
+    const handleWebcamCapture = (file, previewUrl) => {
+        setImageFile(file);
+        setPreview(previewUrl);
+        setCaptureMode("upload");
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!imageFile) { setError("Please upload a full-body photo."); return; }
-        setError(""); setLoading(true);
+    const clearPhoto = () => { setImageFile(null); setPreview(null); };
+
+    const handleUpdate = async () => {
+        if (!imageFile) return;
+        setError(""); setSuccess(""); setLoading(true);
         try {
-        const fd = new FormData();
-        fd.append("name", form.name);
-        fd.append("email", form.email);
-        fd.append("password", form.password);
-        fd.append("image", imageFile);
-        const data = await register(fd);
-        onLogin(data);
-        } catch (err) {
-        setError(err.message);
-        } finally {
-        setLoading(false);
-        }
+        const res = await updateImage(token, imageFile);
+        onUserUpdate(res.user);
+        setSuccess("Measurements updated successfully.");
+        clearPhoto();
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     return (
-        <div className="auth-layout" style={{ gridTemplateColumns: "1fr 1.2fr" }}>
-        {/* Left visual */}
-        <div className="auth-visual">
-            <div className="auth-visual-bg" />
-            <div className="auth-visual-content">
-            <div className="auth-visual-tag">✦ Privacy First</div>
-            <h1 className="auth-visual-headline">
-                Your photo is <em>never stored</em> — just your measurements.
-            </h1>
-            <p className="auth-visual-sub">
-                We use MediaPipe BlazePose to extract body landmarks from your photo and compute proportions. The photo is discarded immediately — only your ratios are saved.
-            </p>
-            <div style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
-                {["📷 Full-body, front-facing photo", "🦺 Fitted clothing preferred", "💡 Good lighting, plain background", "📏 1.5–2 metres from camera"].map(t => (
-                <div key={t} style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.9rem" }}>{t}</div>
-                ))}
+        <div className="page">
+        <Navbar user={user} onNavigate={onNavigate} onLogout={onLogout} currentPage="profile" />
+
+        <div className="page-inner">
+            {/* Identity */}
+            <div className="card card-padded" style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 20 }}>
+            <div className="avatar">{initials}</div>
+            <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "1.3rem", fontWeight: 500, marginBottom: 2 }}>{user.name}</div>
+                <div style={{ fontSize: "0.85rem", color: "var(--slate-400)" }}>{user.email}</div>
             </div>
+            {user.body_shape && (
+                <span className="badge badge-gold" style={{ fontSize: "0.78rem" }}>{user.body_shape}</span>
+            )}
             </div>
-        </div>
 
-        {/* Right form */}
-        <div className="auth-form-side">
-            <div className="auth-form-box" style={{ maxWidth: 480 }}>
-            <div className="auth-form-logo">Smart<span>Fit</span> AI</div>
-            <h2 className="auth-title">Create account</h2>
-            <p className="auth-sub">Upload a photo and we'll extract your measurements automatically.</p>
+            <div className="profile-grid">
+            {/* Left column */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-            <form className="auth-form" onSubmit={handleSubmit}>
-                {error && <div className="alert alert-error">{error}</div>}
+                {/* Body profile */}
+                <div className="card card-padded">
+                <p className="section-eyebrow">Measurements</p>
+                <h2 className="section-title" style={{ marginBottom: 16 }}>Your body profile</h2>
 
-                <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input className="form-input" type="text" placeholder="Your name" value={form.name} onChange={set("name")} required />
+                <div className="stat-tiles" style={{ marginBottom: 16 }}>
+                    {[
+                    { val: user.body_shape || "—", label: "Body Shape" },
+                    { val: user.r1 ? user.r1.toFixed(4) : "—", label: "R1 (Chest/Hip)" },
+                    { val: user.r2 ? user.r2.toFixed(4) : "—", label: "R2 (Torso/Leg)" },
+                    { val: confPct !== null ? `${confPct}%` : "—", label: "Confidence" },
+                    ].map(s => (
+                    <div className="stat-tile" key={s.label}>
+                        <div className="stat-tile-val">{s.val}</div>
+                        <div className="stat-tile-label">{s.label}</div>
+                    </div>
+                    ))}
                 </div>
 
-                <div className="form-group">
-                <label className="form-label">Email</label>
-                <input className="form-input" type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} required autoComplete="email" />
-                </div>
+                {/* Confidence bar */}
+                {confPct !== null && (
+                    <>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "var(--slate-400)", marginBottom: 4 }}>
+                        <span>Measurement confidence</span>
+                        <span style={{ fontWeight: 600, color: confColor }}>{confPct}%</span>
+                    </div>
+                    <div className="conf-bar-wrap">
+                        <div className="conf-bar-fill" style={{ width: `${confPct}%`, background: confColor }} />
+                    </div>
+                    {confPct < 70 && (
+                        <p style={{ marginTop: 8, fontSize: "0.78rem", color: "var(--slate-400)", lineHeight: 1.5 }}>
+                        Confidence below 70% — re-uploading a better photo may improve recommendations.
+                        </p>
+                    )}
+                    </>
+                )}
 
-                <div className="form-group">
-                <label className="form-label">Password</label>
-                <input className="form-input" type="password" placeholder="Min 8 characters" value={form.password} onChange={set("password")} required minLength={8} autoComplete="new-password" />
-                </div>
-
-                {/* Photo upload */}
-                <div className="form-group">
-                <label className="form-label">Body Photo</label>
-                <div
-                    className={`upload-zone ${dragOver ? "drag-over" : ""}`}
-                    onClick={() => fileRef.current.click()}
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={handleDrop}
-                >
-                    {preview
-                    ? <img src={preview} alt="Preview" className="upload-preview" />
-                    : <>
-                        <div className="upload-zone-icon">🖼️</div>
-                        <div className="upload-zone-title">Drop photo here or click to browse</div>
-                        <div className="upload-zone-sub">JPG, PNG · Full body, front-facing</div>
-                        </>
-                    }
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
-                {preview && (
-                    <button type="button" className="btn btn-ghost" style={{ alignSelf: "flex-start", marginTop: 4 }} onClick={() => { setImageFile(null); setPreview(null); }}>
-                    ✕ Remove photo
-                    </button>
+                {user.body_shape && SHAPE_DESC[user.body_shape] && (
+                    <div className="alert alert-info" style={{ marginTop: 14 }}>
+                    <span>◈</span>
+                    <span><strong>{user.body_shape} —</strong> {SHAPE_DESC[user.body_shape]}</span>
+                    </div>
                 )}
                 </div>
 
-                <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
-                {loading ? <><span className="spinner" /> Analysing photo…</> : "Create Account →"}
-                </button>
-            </form>
+                {/* Sign out */}
+                <div className="card card-padded">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                    <div>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>Sign out</div>
+                    <div style={{ fontSize: "0.82rem", color: "var(--slate-400)" }}>You'll need to sign in again to access recommendations.</div>
+                    </div>
+                    <button className="btn btn-outline" onClick={onLogout}>Sign out</button>
+                </div>
+                </div>
+            </div>
 
-            <p className="auth-switch">
-                Already have an account?{" "}
-                <button onClick={() => onNavigate("login")}>Sign in</button>
-            </p>
+            {/* Right column */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* Update photo */}
+                <div className="card card-padded">
+                <p className="section-eyebrow">Re-analyse</p>
+                <h2 className="section-title" style={{ marginBottom: 6 }}>Update body photo</h2>
+                <p style={{ fontSize: "0.85rem", color: "var(--slate-400)", marginBottom: 20, lineHeight: 1.6 }}>
+                    Upload a new photo to recalculate your measurements. Previous measurements are replaced immediately. Your photo is never stored.
+                </p>
+
+                {error   && <div className="alert alert-error"   style={{ marginBottom: 14 }}><span>—</span><span>{error}</span></div>}
+                {success && <div className="alert alert-success" style={{ marginBottom: 14 }}><span>✓</span><span>{success}</span></div>}
+
+                {/* Tab toggle */}
+                <div className="capture-tabs">
+                    <button
+                    type="button"
+                    className={`capture-tab ${captureMode === "upload" ? "active" : ""}`}
+                    onClick={() => setCaptureMode("upload")}
+                    >Upload photo</button>
+                    <button
+                    type="button"
+                    className={`capture-tab ${captureMode === "webcam" ? "active" : ""}`}
+                    onClick={() => { setCaptureMode("webcam"); clearPhoto(); }}
+                    >Use webcam</button>
+                </div>
+
+                {captureMode === "upload" && (
+                    <>
+                    {preview ? (
+                        <div style={{ position: "relative" }}>
+                        <img src={preview} alt="Preview" className="upload-preview" />
+                        <button
+                            type="button"
+                            className="btn-ghost"
+                            style={{ marginTop: 6, padding: "4px 0", fontSize: "0.78rem" }}
+                            onClick={clearPhoto}
+                        >
+                            Remove photo
+                        </button>
+                        </div>
+                    ) : (
+                        <div
+                        className={`upload-zone ${dragOver ? "drag-over" : ""}`}
+                        onClick={() => fileRef.current.click()}
+                        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
+                        >
+                        <div className="upload-zone-icon">↑</div>
+                        <div className="upload-zone-title">Drop photo or click to browse</div>
+                        <div className="upload-zone-sub">Full body · Front-facing · Fitted clothing</div>
+                        </div>
+                    )}
+                    <input
+                        ref={fileRef} type="file" accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={e => handleFile(e.target.files[0])}
+                    />
+                    </>
+                )}
+
+                {captureMode === "webcam" && (
+                    <LiveCaptureInline
+                    onCapture={handleWebcamCapture}
+                    onCancel={() => setCaptureMode("upload")}
+                    />
+                )}
+
+                {imageFile && (
+                    <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                    <button className="btn btn-gold" onClick={handleUpdate} disabled={loading}>
+                        {loading ? <><span className="spinner" />Analysing…</> : "Update measurements"}
+                    </button>
+                    <button className="btn btn-outline" onClick={clearPhoto}>Cancel</button>
+                    </div>
+                )}
+                </div>
+
+                {/* Guidelines */}
+                <div className="card card-padded">
+                <p className="section-eyebrow">Photo tips</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+                    {[
+                    ["✓", "green", "Full body in frame"],
+                    ["✓", "green", "Face the camera"],
+                    ["✓", "green", "Fitted clothing"],
+                    ["✓", "green", "Good lighting"],
+                    ["✗", "red",   "Side-facing pose"],
+                    ["✗", "red",   "Loose clothing"],
+                    ].map(([icon, col, text]) => (
+                    <div key={text} style={{ display: "flex", gap: 8, fontSize: "0.82rem", color: "var(--slate-500)" }}>
+                        <span style={{ color: col === "green" ? "var(--green)" : "var(--red)", fontWeight: 700, flexShrink: 0 }}>{icon}</span>
+                        <span>{text}</span>
+                    </div>
+                    ))}
+                </div>
+                </div>
+            </div>
             </div>
         </div>
+
+        <footer className="page-footer">SmartFit AI · Size Intelligence</footer>
         </div>
     );
 }

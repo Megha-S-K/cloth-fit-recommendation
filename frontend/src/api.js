@@ -66,7 +66,7 @@ async function req(path, options = {}) {
         headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-    });
+    },
+    body: JSON.stringify(body),
+  });
 }

@@ -2,88 +2,106 @@ import { useState } from "react";
 import { login } from "../api";
 
 export default function LoginPage({ onLogin, onNavigate }) {
-    const [email, setEmail] = useState("");
+    const [email, setEmail]       = useState("");
     const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+    const [loading, setLoading]   = useState(false);
+    const [error, setError]       = useState("");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError("");
-        setLoading(true);
+        setError(""); setLoading(true);
         try {
         const data = await login(email, password);
         onLogin(data);
-        } catch (err) {
-        setError(err.message);
-        } finally {
-        setLoading(false);
-        }
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     return (
-        <div className="auth-layout">
-        {/* Left visual panel */}
-        <div className="auth-visual">
-            <div className="auth-visual-bg" />
-            <div className="auth-visual-content">
-            <div className="auth-visual-tag">✦ AI-Powered Fit</div>
-            <h1 className="auth-visual-headline">
-                Find your <em>perfect fit</em>,<br />every single time.
-            </h1>
-            <p className="auth-visual-sub">
-                SmartFit AI uses your body proportions to recommend the right size across 9 top brands — no measuring tape needed.
-            </p>
+        <div className="auth-wrap">
+        <header className="auth-header">
+            <div className="auth-logo">
+            SmartFit<span style={{ color: "var(--gold)" }}>·</span>AI
             </div>
-        </div>
+        </header>
 
-        {/* Right form panel */}
-        <div className="auth-form-side">
-            <div className="auth-form-box">
-            <div className="auth-form-logo">Smart<span>Fit</span> AI</div>
-            <h2 className="auth-title">Welcome back</h2>
-            <p className="auth-sub">Sign in to get your personalized size recommendations.</p>
+        <div className="auth-body">
+            {/* Form panel */}
+            <div className="auth-panel">
+            <p className="section-eyebrow">Welcome back</p>
+            <h1 className="auth-panel-title">Sign in</h1>
+            <div className="gold-line" style={{ margin: "14px 0 28px" }} />
+
+            {error && (
+                <div className="alert alert-error" style={{ marginBottom: 20 }}>
+                <span>—</span><span>{error}</span>
+                </div>
+            )}
 
             <form className="auth-form" onSubmit={handleSubmit}>
-                {error && <div className="alert alert-error">{error}</div>}
-
-                <div className="form-group">
-                <label className="form-label">Email</label>
+                <div className="form-field">
+                <label className="form-label" htmlFor="email">Email address</label>
                 <input
-                    className="form-input"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
+                    id="email" className="form-input" type="email"
+                    value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com" required autoComplete="email" autoFocus
                 />
                 </div>
 
-                <div className="form-group">
-                <label className="form-label">Password</label>
+                <div className="form-field">
+                <label className="form-label" htmlFor="password">Password</label>
                 <input
-                    className="form-input"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required
-                    autoComplete="current-password"
+                    id="password" className="form-input" type="password"
+                    value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••" required autoComplete="current-password"
                 />
                 </div>
 
                 <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
-                {loading ? <><span className="spinner" /> Signing in…</> : "Sign In →"}
+                {loading ? <><span className="spinner" />Signing in…</> : "Continue"}
                 </button>
             </form>
 
-            <p className="auth-switch">
-                Don't have an account?{" "}
-                <button onClick={() => onNavigate("register")}>Create one free</button>
-            </p>
+            <div className="divider" style={{ margin: "24px 0" }}>or</div>
+
+            <button
+                className="btn btn-outline btn-full"
+                onClick={() => onNavigate("register")}
+            >
+                Create an account
+            </button>
+            </div>
+
+            {/* Aside */}
+            <div className="auth-aside">
+            <div className="auth-aside-card">
+                <div className="auth-aside-tag">✦ AI-Powered</div>
+                <h2 className="auth-aside-title">
+                Your perfect fit,<br /><em>every time</em>
+                </h2>
+                <p className="auth-aside-body">
+                SmartFit AI reads your body proportions from a single photo and recommends the exact size across 9 major brands.
+                </p>
+                <div className="auth-aside-list">
+                {[
+                    ["✦", "No tape measure needed"],
+                    ["✦", "9 brands, 474 size chart entries"],
+                    ["✦", "Confidence score on every recommendation"],
+                    ["✦", "Photo discarded immediately after analysis"],
+                ].map(([icon, text]) => (
+                    <div className="auth-aside-item" key={text}>
+                    <div className="auth-aside-icon">{icon}</div>
+                    <span>{text}</span>
+                    </div>
+                ))}
+                </div>
+            </div>
             </div>
         </div>
-    </div>
-  );
+
+        <footer className="page-footer">
+            SmartFit AI · Size Intelligence
+        </footer>
+        </div>
+    );
 }

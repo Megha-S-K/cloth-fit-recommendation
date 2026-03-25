@@ -1,28 +1,27 @@
-export default function Navbar({ onNavigate, onLogout, currentPage }) {
+export default function Navbar({ user, onNavigate, onLogout, currentPage }) {
+    const first = user?.name?.split(" ")[0] || "Account";
     return (
         <nav className="navbar">
-        <a className="navbar-logo" onClick={() => onNavigate("home")} style={{ cursor: "pointer" }}>
-            Smart<span>Fit</span> AI
-        </a>
-        <div className="navbar-actions">
-            <button
-            className={`btn btn-ghost ${currentPage === "home" ? "btn-secondary" : ""}`}
-            onClick={() => onNavigate("home")}
-            style={currentPage === "home" ? { background: "var(--off)", color: "var(--ink)", fontSize: "0.88rem" } : { fontSize: "0.88rem" }}
-            >
-            🔍 Recommend
-            </button>
-            <button
-            className={`btn btn-ghost`}
-            onClick={() => onNavigate("profile")}
-            style={{ fontSize: "0.88rem" }}
-            >
-            👤 Profile
-            </button>
-            <button className="btn btn-outline" onClick={onLogout} style={{ fontSize: "0.85rem", padding: "10px 20px" }}>
-            Sign Out
-            </button>
+        <div className="nav-logo" onClick={() => onNavigate("home")}>
+            SmartFit<span className="nav-logo-dot">·</span>AI
+            <span className="nav-logo-sub">Size Intelligence</span>
         </div>
+        <div className="nav-spacer" />
+        <button
+            className={`nav-link ${currentPage === "home" ? "active" : ""}`}
+            onClick={() => onNavigate("home")}
+        >
+            Recommend
+        </button>
+        <div className="nav-sep" />
+        <button
+            className={`nav-link ${currentPage === "profile" ? "active" : ""}`}
+            onClick={() => onNavigate("profile")}
+        >
+            {first}
+        </button>
+        <div className="nav-sep" />
+        <button className="nav-link" onClick={onLogout}>Sign out</button>
         </nav>
     );
 }

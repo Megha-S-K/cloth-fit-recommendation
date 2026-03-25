@@ -27,27 +27,16 @@ export default function App() {
     else setPage("login");
   }, []);
 
-  const handleLogin = (data) => {
-    setToken(data.token);
-    setUser(data.user);
-    setPage("home");
-  };
-
-  const handleLogout = () => {
-    setToken("");
-    setUser(null);
-    setPage("login");
-  };
-
-  const navigate = (p) => setPage(p);
+  const handleLogin = (data) => { setToken(data.token); setUser(data.user); setPage("home"); };
+  const handleLogout = () => { setToken(""); setUser(null); setPage("login"); };
 
   if (!token || !user) {
     return page === "register"
-      ? <RegisterPage onLogin={handleLogin} onNavigate={navigate} />
-      : <LoginPage onLogin={handleLogin} onNavigate={navigate} />;
+      ? <RegisterPage onLogin={handleLogin} onNavigate={setPage} />
+      : <LoginPage onLogin={handleLogin} onNavigate={setPage} />;
   }
 
   return page === "profile"
-    ? <ProfilePage user={user} token={token} onNavigate={navigate} onLogout={handleLogout} onUserUpdate={setUser} />
-    : <HomePage user={user} token={token} onNavigate={navigate} onLogout={handleLogout} />;
+    ? <ProfilePage user={user} token={token} onNavigate={setPage} onLogout={handleLogout} onUserUpdate={setUser} />
+    : <HomePage user={user} token={token} onNavigate={setPage} onLogout={handleLogout} />;
 }
